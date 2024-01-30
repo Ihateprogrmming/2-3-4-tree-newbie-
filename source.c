@@ -1,12 +1,17 @@
+
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
+
+
+
 
 struct n {
 	int number;
 	struct n* left;
 	struct n* right;
 	struct n* up_left;
-	struct n* up_right;
+	struct n*up_right;
 	struct n* down_left;
 	struct n* down_right;
 };
@@ -172,7 +177,10 @@ n*n_split(n**head, n*current)  //return pointer that point to upper node.
 		current->up_right->left = current;
 		current->right = current->up_right; //insert current to that level
 		current->up_left = current->right->up_left;
-		current->up_right = current->right->up_right;   //fix current's up link 
+		current->up_right = current->right->up_right;   //fix current's up link           ////down link
+		current->right->down_left = current->down_right;   //reset top level's down link
+
+
 		if ((current->up_left == NULL) && (current->up_right == NULL))
 			*head = current; //headnode link correction
 		else
@@ -273,7 +281,8 @@ n* one_fusion(n**head, n* current, int flag)//0 left   1 right       froms right
 {
 	n* parent = (flag) ? current->up_right : current->up_left;
 	n* opponent = (flag) ? parent->down_right : parent->down_left;
-	n* temp_head = (flag) ? current : opponent;
+	n* temp_head = (flag) ? current : opponent;////???
+
 	int* recall_flag = 0;
 	current->number = parent->number;
 	if (flag)//from right
@@ -300,8 +309,8 @@ n* one_fusion(n**head, n* current, int flag)//0 left   1 right       froms right
 		current->left = opponent;
 		opponent->right = current;//link works
 	}
-
-	if ((current->up_left != NULL) && (current->up_right != NULL))
+	
+	if ((parent->left != NULL) && (parent->right != NULL))//////we have both side parent. then only from left fusion will hapen, 
 	{
 		parent->left->down_right = temp_head;
 		parent->right->down_left = temp_head;
@@ -310,11 +319,11 @@ n* one_fusion(n**head, n* current, int flag)//0 left   1 right       froms right
 		temp_head->up_right->left = temp_head->up_left; //re connect 
 		free(parent);
 	}
-	else if ((current->up_left == NULL) && (current->up_right != NULL) && (current->up_right->right != NULL)) //change right side need to reset head or upper links
+	else if ((parent->left == NULL) && (parent->right != NULL)) //change right side need to reset head or upper links
 	{
-		parent->right->down_left = temp_head;
+		parent->right->down_left = temp_head;// head position
 		n_up_link_reset(temp_head, NULL , parent->right);
-		temp_head->up_right->left = NULL;
+		temp_head->up_right->left = NULL; //cut
 		if ((parent->up_left == NULL) && (parent->up_right == NULL))
 			(*head) = parent->right;
 		else
@@ -326,18 +335,18 @@ n* one_fusion(n**head, n* current, int flag)//0 left   1 right       froms right
 		}
 		free(parent);
 	}
-	else if ((current->up_left != NULL) && (current->up_right == NULL) && (current->up_left->left != NULL)) //change leff side 
+	else if ((parent->left != NULL) && (parent->right == NULL)) //change leff side, parent at right tail, 
 	{
-		parent->left->down_right = temp_head;
+		parent->left->down_right = temp_head; //1: from right,  n* temp_head = (flag) ? current : opponent;////??? 
 		n_up_link_reset(temp_head, parent->left, NULL);
 		temp_head->up_left->right = NULL;
 		free(parent);
 	}
 	else//only one node up
 	{
-		parent->down_left = temp_head;  //set on left or right both are ok
+		parent->down_left = temp_head;  
 		parent->down_right = NULL;
-		n_up_link_reset(temp_head, parent, NULL);
+		n_up_link_reset(temp_head, NULL, parent);
 		recall_flag = 1;
 	}
 	return (recall_flag) ? parent : NULL;
@@ -349,11 +358,15 @@ void normal_deletion(n** head, n* current) //leaf deletion, or node right under 
 	{
 		(*head) = current->down_left;
 		n_up_link_reset(current->down_left,NULL,NULL);
+		free(current);
 	}
-	else //only on leaf
+	else //only on leaf, also need to corrent their donw link
 	{
 		if (current->left == NULL)//left most
 		{
+			current->right->down_left = current->down_left; //link corrent
+			if (current->down_left != NULL)
+				n_up_link_reset(current->down_left, NULL, current->right);
 			current->right->left = NULL;
 			if ((current->up_left == NULL) && (current->up_right == NULL))
 				(*head) = current->right;
@@ -368,11 +381,18 @@ void normal_deletion(n** head, n* current) //leaf deletion, or node right under 
 		}
 		else if (current->right == NULL)//right most
 		{
+			current->left->down_right = current->down_left; //link corrent
+			if (current->down_left != NULL)
+				n_up_link_reset(current->down_left, current->left, NULL );
 			current->left->right = NULL;
 			free(current);
 		}
 		else//mid
 		{
+			current->left->down_right = current->down_left; //link corrent
+			current->right->down_left = current->down_left; //link corrent
+			if (current->down_left != NULL)
+				n_up_link_reset(current->down_left, current->left, current->right);
 			current->left->right = current->right;
 			current->right->left = current->left;
 			free(current);
@@ -385,6 +405,8 @@ n* n_search(n*current, int number)  //not exist return NULL
 {
 	while (1)
 	{
+		if (current == NULL)
+			return NULL;
 		if (number == current->number)
 			return current;
 		if (number < current->number) ///move to left son node
@@ -522,6 +544,7 @@ void head_print(Q**head, Q**down)
 	Q* tail = *down;
 	Q* temp = *head;
 	Q* temp2 = NULL;
+
 	if (tail != NULL)
 	{
 		while (tail->link != NULL)
@@ -566,6 +589,8 @@ void result_print(n*head)
 	Q* temp = NULL;
 	up->data = head;
 	up->link = NULL;
+	if (head == NULL)
+		return;
 	do 
 	{
 		do 
@@ -580,32 +605,43 @@ void result_print(n*head)
 }
 
 
-int main(void)
-{
+int main(void) {
 	n* head = NULL;
-	n_insert(&head, 10);
-	n_insert(&head, 15);
-	n_insert(&head, 5);
-	n_insert(&head, 1);
-	n_insert(&head, 20);
-	n_insert(&head, 28);
-	n_insert(&head, 29);
-	n_insert(&head, 30);
-	n_insert(&head, 31);
-	n_insert(&head, 32);
-	result_print(head);
+	char command;
+	int number;
 
-	n_delete(&head, 15);
-	result_print(head);
+	while (1) {
+		printf("Enter command and number: ");
+		scanf(" %c%d%c", &command, &number);  // Add a space before %c to consume newline
+		//while (getchar() != '\n');  // Flush the input buffer
 
-
+		if (command == 'i' ) {
+			// Assuming n_insert is a function that inserts a node
+			// Update this part with your actual implementation
+			n_insert(&head, number);
+			printf("Inserting %d\n", number);
+			printf("\n");
+		}
+		else if (command == 'd') {
+			// Assuming n_delete is a function that deletes a node
+			// Update this part with your actual implementation
+			n_delete(&head, number);
+			printf("Deleting %d\n", number);
+			printf("\n");
+		}
+		else
+		{
+			printf("Wrong instruction\n");
+		}
+		// Assuming result_print is a function that prints the result
+		// Update this part with your actual implementation
+		result_print(head);
+		printf("\n");
+		printf("Result printed\n");
+	}
 
 	return 0;
 }
-
-
-
-
 
 
 
